@@ -101,3 +101,76 @@ p1 <- p1 %>%
 #stop continue later
 ```
 
+```{r}
+# Cleaning GameType variable
+p1 <- p1 %>%
+  mutate(GameType = case_when(
+    grepl("HC", GameType) & grepl("TDM", GameType) ~ "TDM",
+    grepl("HC", GameType) & grepl("Hardpoint", GameType) ~ "Hardpoint",
+    TRUE ~ GameType
+  ))
+
+# EDA - Distribution of TotalXP and Score
+p1 %>%
+  ggplot(aes(x = TotalXP, y = Score, color = GameType)) +
+  geom_point() +
+  labs(title = "Distribution of TotalXP and Score by GameType",
+       x = "TotalXP", y = "Score")
+
+# EDA - Boxplot to compare TotalXP by GameType
+p1 %>%
+  ggplot(aes(x = GameType, y = TotalXP)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of TotalXP by GameType",
+       x = "GameType", y = "TotalXP")
+
+# Building a linear regression model
+model <- lm(TotalXP ~ Score + GameType, data = p1)
+
+# Summary of the model
+summary(model)
+
+# Predict TotalXP using the model
+predicted_totalxp <- predict(model, newdata = p1)
+
+# Compare predicted_totalxp with the actual TotalXP
+comparison_df <- data.frame(Actual = p1$TotalXP, Predicted = predicted_totalxp)
+
+# Cleaning GameType variable for p2
+p2 <- p2 %>%
+  mutate(GameType = case_when(
+    grepl("HC", GameType) & grepl("TDM", GameType) ~ "TDM",
+    grepl("HC", GameType) & grepl("Hardpoint", GameType) ~ "Hardpoint",
+    TRUE ~ GameType
+  ))
+
+# EDA - Distribution of TotalXP and Score for p2
+p2 %>%
+  ggplot(aes(x = TotalXP, y = Score, color = GameType)) +
+  geom_point() +
+  labs(title = "Distribution of TotalXP and Score by GameType (p2)",
+       x = "TotalXP", y = "Score")
+
+# EDA - Boxplot to compare TotalXP by GameType for p2
+p2 %>%
+  ggplot(aes(x = GameType, y = TotalXP)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of TotalXP by GameType (p2)",
+       x = "GameType", y = "TotalXP")
+
+# Building a linear regression model for p2
+model_p2 <- lm(TotalXP ~ Score + GameType, data = p2)
+
+# Summary of the model for p2
+summary(model_p2)
+
+# Predict TotalXP using the model for p2
+predicted_totalxp_p2 <- predict(model_p2, newdata = p2)
+
+# Compare predicted_totalxp_p2 with the actual TotalXP for p2
+comparison_df_p2 <- data.frame(Actual = p2$TotalXP, Predicted = predicted_totalxp_p2)
+
+#TDM and hardpoint had the most variation but also more data. It seems that those two had the most extremes pulling the score mean higher and due to this making the score likely to be higher in these game modes.The least likely is HC- killed confirmed. If a player wanted a game mode to most likely increase his score, the player should consider playing TDM and hardpoint.
+```
+
+
