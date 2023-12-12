@@ -68,24 +68,16 @@ The code block above has he purpose of combining the tables while creating a sur
 head(Combined %>% 
   group_by(Map1) %>%
   summarize(count =n()), 10)
-
-Combined %>% 
-  group_by(Map1) %>%
-  summarize(count =n())
 ```
 ```{r}
 head(Combined %>% 
   group_by(Map2) %>%
   summarize(count =n()),10)
-
-Combined %>% 
-  group_by(Map2) %>%
-  summarize(count =n())
 ```
 ```{r}
-Combined %>% 
+head(Combined %>% 
   group_by(Choice) %>%
-  summarize(count =n())
+  summarize(count =n()), 10)
 ```
 
 From these two tables displaying the content in Map1 and Map2, we can see that there are spelling errors and the data is not completely clean. Thus, we must find a way to fix these errors and clean the data. The following code will do this.
@@ -261,7 +253,7 @@ combined_maps <- combined_maps%>%
   select(MapChoice, map_proportions)
 
 ```
-In this code chunk 
+
 ```{r}
 # Visualize the data
 ggplot(data = combined_maps, mapping = aes(x = MapChoice, y = map_proportions, fill = MapChoice))+
