@@ -49,55 +49,230 @@ gmodes <- read.csv(file = "data/CODGameModes.csv",
 - Notes: To answer this question, write a paragraph discussing how you plan to answer this question. Be sure to address the data quality issues mentioned below. Then, write code and answer the question. As part of your solution, you should calculate the proportion of times that each map was listed as a candidate (Map1 or Map2) and earned more votes than the other candidate. As part of this, you should consider whether a given map won the vote by getting more votes than the other option or was selected since it was `Map1` and the vote was a tie. You should also include a visualization of the results. There are some data quality issues (such as misspelled map names and extra (trailing) blanks in some entries) to solve for this problem. You can find the proper names/spellings in the CODMaps.csv file. To full receive full credit, you must write code to solve these issues rather than editing the .csv files. 
 
 #### Explanation:
+We plan to answer the question of "which maps are the most likely to win the map vote?" in three phases. In the first phase, we perform EDA and clean the data. We will combine the P1 and P2 tables by assigning each player a 'PlayerID' to prevent loss of data. Then we will explore the attributes 'Map1', 'Map2', and 'Choice'. From this exploration we will determine the best way to approach fixing the spelling and string errors in these attributes. In the second phase, we will specifically focus on working with the 'MapVote' attribute to obtain the difference in votes. This will help us make conclusions about the proportions of times each specific map type was listed as a candidate and earned more votes than the other candidate map. In phase three we will find the proportions of times each specific map was chosen because it earned more votes than the other map. This last phase will answer the question.
 
-- We plan to answer the question of "which maps are the most likely to win the map vote?" in three phases. First, we will clean the data and fix the spelling errors. Next, we will look at the graphs to have a general idea of possible answers.Finally, we will include the proportions of the possibility by using the "summarize" operation on p1 and p2. We will take the average of both p1's and p2's proportion and store them as a new variable. We will not be joining p1 and p2 right now as the data appears the player data is unique and specific to each player and combining the set right now will lead to some misunderstandings when it comes to interpretation of the data at a later point. We will consider joining when we think it is relevant. 
+## Phase 1
+```{r}
+# Joining p1 and p2 tables
 
+# First let's create a new attribute in each data set to indicate the playerID
+p1<-p1%>%
+  mutate(PlayerID = 'P1')
+p2<-p2%>%
+  mutate(PlayerID = 'P2')
+Combined <- rbind(p1, p2)
+```
+The code block above has he purpose of combining the tables while creating a surrogate key for each player in order to prevent loss of data when combining the two tables.
 
 ```{r}
-p1 %>% 
+head(Combined %>% 
+  group_by(Map1) %>%
+  summarize(count =n()), 10)
+
+Combined %>% 
   group_by(Map1) %>%
   summarize(count =n())
 ```
-
 ```{r}
-p1 %>% 
+head(Combined %>% 
   group_by(Map2) %>%
-  summarize(count = n())
-```
+  summarize(count =n()),10)
 
+Combined %>% 
+  group_by(Map2) %>%
+  summarize(count =n())
+```
 ```{r}
-p1 %>% 
+Combined %>% 
   group_by(Choice) %>%
-  summarize(count = n())
-```
-
-
-```{r}
-p2 %>% 
-  group_by(Map1) %>%
   summarize(count =n())
 ```
 
+From these two tables displaying the content in Map1 and Map2, we can see that there are spelling errors and the data is not completely clean. Thus, we must find a way to fix these errors and clean the data. The following code will do this.
+
 ```{r}
-p2 %>% 
-  group_by(Map2) %>%
-  summarize(count = n())
+# Get rid of unnecessary spaces in the data
+Combined<- Combined %>% 
+  mutate(MapOne = str_trim(Map1), MapTwo = str_trim(Map2), MapChoice = str_trim(Choice))%>%
+  select(-Map1, -Map2, -Choice)
 ```
 
 ```{r}
-# Fixing Spelling Errors
+# Take only the first 3 letters of each map name
+CODMaps <- maps%>% 
+      mutate(ThreeLetters = substr(Name, 1, 3))
 
+# Change the values in Map1, Map2, and Choice to only the first three letters to match with CODMaps
+Combined <- Combined%>%
+  mutate(Map1 = substr(MapOne, 1, 3), Map2 = substr(MapTwo, 1, 3), Choice = substr(MapChoice, 1, 3))
+
+# Match the letters
+Combined$MapOne <- CODMaps$Name[match(Combined$Map1, CODMaps$ThreeLetters)]
+Combined$MapTwo <- CODMaps$Name[match(Combined$Map2, CODMaps$ThreeLetters)]
+Combined$MapChoice <- CODMaps$Name[match(Combined$Choice, CODMaps$ThreeLetters)]
+
+# Get rid of columns that aren't cleaned
+Combined<-Combined%>%
+  select(-Map1, -Map2, -Choice)
+```
+The above code aims to completely fix the spelling and spacing errors in the data for the attributes 'Map1', 'Map2', and 'Choice'. We approached this data cleaning assignment by first getting rid of unnecessary space. Then we moved on to solve the spelling errors. After brainstorming, we came up with the idea to use the first three letters of each string of data in the attributes with the spelling error. We will match these three letters to the first three letters of maps in CODMaps to assign the correct spelling. 
+
+```{r}
+head(Combined %>% 
+  group_by(MapOne) %>%
+  summarize(count =n()),10)
+```
+```{r}
+head(Combined %>% 
+  group_by(MapTwo) %>%
+  summarize(count =n()), 10)
+```
+```{r}
+head(Combined %>% 
+  group_by(MapChoice) %>%
+  summarize(count =n()),10)
+```
+From these three lines of code above, we can see that we successfully fixed the spelling errors and spacing errors within the map1, map2, and choice attributes. We know we fixed these errors in the data because we can see that each of these fixed attributes only has 28 observations when we group by them. According to the CODMaps data set there are only 28 different maps.
+
+## Phase 2
+```{r}
+# Calculate the vote difference
+calculate_diff <- function(vote) {
+  # Split the string into numbers in a list (found online)
+  nums <- str_extract_all(vote, "\\d+")[[1]]
+  # Subtract only two numbers from the newly created list from 'nums' above
+  if (length(nums) == 2) {
+    # Finding the difference
+    as.numeric(nums[1]) - as.numeric(nums[2])
+  } else {
+    return(NA)
+  }
+}
 ```
 
 ```{r}
-p1 <- p1 %>% 
-  mutate(Map1_Trimmed = str_trim(Map1),
-    MapOne = case_when(
-    Map1_Trimmed %in% c('Collateral', 'Collateral Striek',	'Collaterol Strike', 'Collateral Strike') ~ 'Collateral Strike', 
-    Map1_Trimmed %in% c('Deprogam', 'Deprogram') ~ 'Deprogram',
-    Map1_Trimmed %in% c('Drive-in', 'Drive-In') ~ 'Drive-In',
-    
-    TRUE ~ Map1_Trimmed))
-#stop continue later
+Combined <- Combined %>%
+  mutate(VoteDifference = sapply(MapVote, calculate_diff))
+
+Combined <- Combined %>%
+  mutate(MapType = ifelse(VoteDifference == 0, 'Map One', ifelse(MapTwo == MapChoice, 'Map Two', ifelse(MapOne == MapChoice, 'Map One',NA))))%>%
+  mutate(Ties = ifelse(VoteDifference == 0, 1, 0))
 ```
+
+```{r}
+MapTypeProportions<-Combined %>% 
+  group_by(MapType) %>%
+  summarize(count =n(),
+            TotalVotes = sum(VoteDifference),
+            TotalTies = sum(Ties))
+            
+MapTypeProportions
+```
+From this summary and the 'Combined' data frame we can see that there are a total of 839 observations. Let's calculate the overall proportions (doesn't answer the question but gives us more insight).
+
+### Map1:
+```{r}
+M1 <- 378
+M1_Ties <- 103
+M1 <- M1-M1_Ties
+
+M1_Prop <- M1/839
+M1_Prop
+```
+The overall percentage of times listed as a candidate and received more votes than Map2 choice is around 32.78% with a proportion of 275/839
+### Map2:
+```{r}
+M2 <- 290
+
+M2_Prop <- M2/839
+M2_Prop
+```
+The overall percentage of times listed as a candidate and received more votes than Map1 choice is around 34.56% with a proportion of 290/839.
+### Ties:
+```{r}
+Ties <- 103
+
+Ties_Prop <- Ties/839
+Ties_Prop
+```
+The overall percentage of times there was a tie in the vote and the Map1 choice was chosen is around 12.27% with a proportion of 103/839.
+
+### NA's:
+```{r}
+MapNAs <- 171
+
+MapNAs_Prop <- MapNAs/839
+MapNAs_Prop
+```
+ The overall percentage of times where there where NA values in the candidate cells but a map was still chosen is around 20.38% with a proportion of 171/839
+
+## Phase 3
+```{r}
+# Get rid of NAs in data temporarily to find the proportions of the maps chosen
+tempCombined <- Combined%>%
+  filter(!is.na(VoteDifference) & !is.na(Ties) & !is.na(MapType))%>%
+  mutate(IsMap1 = ifelse(MapChoice == MapOne, 1, 0), IsMap2 = ifelse(MapChoice == MapTwo, 1, 0))%>%
+  mutate(MapNotChosen = ifelse(MapChoice == MapOne, MapTwo, MapOne))%>%
+  mutate(IsNotMap1 = ifelse(MapNotChosen == MapOne, 1, 0), IsNotMap2 = ifelse(MapNotChosen == MapTwo, 1, 0))%>%
+  select(PlayerID, MapOne, MapTwo, MapChoice, MapType, VoteDifference, Ties, IsMap1, IsMap2, MapNotChosen, IsNotMap1, IsNotMap2)
+```
+
+```{r}
+# Create the summary table
+MapPicked <- tempCombined%>%
+  group_by(MapChoice)%>%
+  summarise(TimesSelected = n(),
+            TotalVotes = sum(VoteDifference),
+            TotalTies = sum(Ties),
+            Map1Selected = sum(IsMap1),
+            Map2Selected = sum(IsMap2))
+head(MapPicked,10)
+```
+
+
+
+```{r}
+MapNotPicked <- tempCombined%>%
+  group_by(MapNotChosen)%>%
+  summarise(TimesNotSelected = n())
+            #TotalVotesNS = sum(VoteDifference),
+            #TotalTiesNS = sum(Ties),
+            #Map1NotSelected = sum(IsNotMap1),
+            #Map2NotSelected = sum(IsNotMap2))
+MapNotPicked
+```
+```{r}
+combined_maps <- left_join(MapPicked, MapNotPicked, by = c("MapChoice" = "MapNotChosen"))
+
+combined_maps <- combined_maps %>%
+  mutate(TotalCandidates = (TimesSelected + TimesNotSelected)-TotalTies)
+
+```
+### Interpretting the tables and code above
+All of the code above is meant to find the total times a map was selected and was not selected when it was a candidate in the map selection/voting of the game. This will help us determine the proportions. In the 'MapPicked' table you can see each broken down statistic of whether the chosen map was of Map1 or Map2 type, the total votes for the chosen map, and the ties.
+### Finding the proportions and visualizing them
+```{r}
+# Calculate the proportions for every map
+map_selected <- (combined_maps$TimesSelected)-(combined_maps$TotalTies)
+map_candidates <- combined_maps$TotalCandidates
+combined_maps <- combined_maps%>%
+  mutate(map_proportions = (map_selected / map_candidates))%>%
+  arrange(desc(map_proportions))%>%
+  select(MapChoice, map_proportions)
+
+```
+In this code chunk 
+```{r}
+# Visualize the data
+ggplot(data = combined_maps, mapping = aes(x = MapChoice, y = map_proportions, fill = MapChoice))+
+  geom_bar(stat = 'Identity') +
+  coord_flip() +
+  labs(title = 'Map Selection Proportion for Each Map', x = 'Map', y = 'Proportion of Being Selected') +
+  theme_minimal()
+```
+```{r}
+head(combined_maps, 5)
+```
+### Answering the Question
+According to our data, the 5 maps that are most likely to win the map vote (without the occurrence of a tie in votes) are Nuketown '84, Raid, Crossroads Strike, Diesel, and Standoff.
 
