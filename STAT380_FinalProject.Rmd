@@ -9,8 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Final Project
-
 ## Front Matter
 ```{r  message=FALSE, warning=FALSE}
 library(tidyverse)
@@ -42,7 +40,7 @@ gmodes <- read.csv(file = "data/CODGameModes.csv",
 
 ## Final Project
 
-#### Part 1: Which maps are the most likely to win the map vote? 
+### Part 1: Which maps are the most likely to win the map vote? 
 
 - Background Info: Prior to each online match, players in the game lobby are presented with two options for the battlefield of the upcoming game (`Map1` and `Map2`). The players have the option to vote and the resulting vote is recorded in the `MapVote` column. The winning map is listed in the `Choice` column. In the event of a tie vote, the map listed in `Map1` is chosen. (Games for which the player entered the lobby after the vote has taken place have no information in `Map1` and `Map2` but have the winning map presented in `Choice`.)
 
@@ -51,7 +49,7 @@ gmodes <- read.csv(file = "data/CODGameModes.csv",
 #### Explanation:
 We plan to answer the question of "which maps are the most likely to win the map vote?" in three phases. In the first phase, we perform EDA and clean the data. We will combine the P1 and P2 tables by assigning each player a 'PlayerID' to prevent loss of data. Then we will explore the attributes 'Map1', 'Map2', and 'Choice'. From this exploration we will determine the best way to approach fixing the spelling and string errors in these attributes. In the second phase, we will specifically focus on working with the 'MapVote' attribute to obtain the difference in votes. This will help us make conclusions about the proportions of times each specific map type was listed as a candidate and earned more votes than the other candidate map. In phase three we will find the proportions of times each specific map was chosen because it earned more votes than the other map. This last phase will answer the question.
 
-## Phase 1
+#### Phase 1
 ```{r}
 # Joining p1 and p2 tables
 
@@ -126,7 +124,7 @@ head(Combined %>%
 ```
 From these three lines of code above, we can see that we successfully fixed the spelling errors and spacing errors within the map1, map2, and choice attributes. We know we fixed these errors in the data because we can see that each of these fixed attributes only has 28 observations when we group by them. According to the CODMaps data set there are only 28 different maps.
 
-## Phase 2
+#### Phase 2
 ```{r}
 # Calculate the vote difference
 calculate_diff <- function(vote) {
@@ -162,7 +160,7 @@ MapTypeProportions
 ```
 From this summary and the 'Combined' data frame we can see that there are a total of 839 observations. Let's calculate the overall proportions (doesn't answer the question but gives us more insight).
 
-### Map1:
+##### Map1:
 ```{r}
 M1 <- 378
 M1_Ties <- 103
@@ -172,7 +170,7 @@ M1_Prop <- M1/839
 M1_Prop
 ```
 The overall percentage of times listed as a candidate and received more votes than Map2 choice is around 32.78% with a proportion of 275/839
-### Map2:
+##### Map2:
 ```{r}
 M2 <- 290
 
@@ -180,7 +178,7 @@ M2_Prop <- M2/839
 M2_Prop
 ```
 The overall percentage of times listed as a candidate and received more votes than Map1 choice is around 34.56% with a proportion of 290/839.
-### Ties:
+##### Ties:
 ```{r}
 Ties <- 103
 
@@ -189,7 +187,7 @@ Ties_Prop
 ```
 The overall percentage of times there was a tie in the vote and the Map1 choice was chosen is around 12.27% with a proportion of 103/839.
 
-### NA's:
+##### NA's:
 ```{r}
 MapNAs <- 171
 
@@ -198,7 +196,7 @@ MapNAs_Prop
 ```
  The overall percentage of times where there where NA values in the candidate cells but a map was still chosen is around 20.38% with a proportion of 171/839
 
-## Phase 3
+#### Phase 3
 ```{r}
 # Get rid of NAs in data temporarily to find the proportions of the maps chosen
 tempCombined <- Combined%>%
@@ -240,9 +238,9 @@ combined_maps <- combined_maps %>%
   mutate(TotalCandidates = (TimesSelected + TimesNotSelected)-TotalTies)
 
 ```
-### Interpretting the tables and code above
+##### Interpretting the tables and code above
 All of the code above is meant to find the total times a map was selected and was not selected when it was a candidate in the map selection/voting of the game. This will help us determine the proportions. In the 'MapPicked' table you can see each broken down statistic of whether the chosen map was of Map1 or Map2 type, the total votes for the chosen map, and the ties.
-### Finding the proportions and visualizing them
+##### Finding the proportions and visualizing them
 ```{r}
 # Calculate the proportions for every map
 map_selected <- (combined_maps$TimesSelected)-(combined_maps$TotalTies)
@@ -265,6 +263,79 @@ ggplot(data = combined_maps, mapping = aes(x = MapChoice, y = map_proportions, f
 ```{r}
 head(combined_maps, 5)
 ```
-### Answering the Question
+##### Answering the Question
 According to our data, the 5 maps that are most likely to win the map vote (without the occurrence of a tie in votes) are Nuketown '84, Raid, Crossroads Strike, Diesel, and Standoff.
 
+
+### Part 2
+```{r}
+# Cleaning GameType variable
+p1 <- p1 %>%
+  mutate(GameType = case_when(
+    grepl("HC", GameType) & grepl("TDM", GameType) ~ "TDM",
+    grepl("HC", GameType) & grepl("Hardpoint", GameType) ~ "Hardpoint",
+    TRUE ~ GameType
+  ))
+
+# EDA - Distribution of TotalXP and Score
+p1 %>%
+  ggplot(aes(x = TotalXP, y = Score, color = GameType)) +
+  geom_point() +
+  labs(title = "Distribution of TotalXP and Score by GameType",
+       x = "TotalXP", y = "Score")
+
+# EDA - Boxplot to compare TotalXP by GameType
+p1 %>%
+  ggplot(aes(x = GameType, y = TotalXP)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of TotalXP by GameType",
+       x = "GameType", y = "TotalXP")
+
+# Building a linear regression model
+model <- lm(TotalXP ~ Score + GameType, data = p1)
+
+# Summary of the model
+summary(model)
+
+# Predict TotalXP using the model
+predicted_totalxp <- predict(model, newdata = p1)
+
+# Compare predicted_totalxp with the actual TotalXP
+comparison_df <- data.frame(Actual = p1$TotalXP, Predicted = predicted_totalxp)
+
+# Cleaning GameType variable for p2
+p2 <- p2 %>%
+  mutate(GameType = case_when(
+    grepl("HC", GameType) & grepl("TDM", GameType) ~ "TDM",
+    grepl("HC", GameType) & grepl("Hardpoint", GameType) ~ "Hardpoint",
+    TRUE ~ GameType
+  ))
+
+# EDA - Distribution of TotalXP and Score for p2
+p2 %>%
+  ggplot(aes(x = TotalXP, y = Score, color = GameType)) +
+  geom_point() +
+  labs(title = "Distribution of TotalXP and Score by GameType (p2)",
+       x = "TotalXP", y = "Score")
+
+# EDA - Boxplot to compare TotalXP by GameType for p2
+p2 %>%
+  ggplot(aes(x = GameType, y = TotalXP)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of TotalXP by GameType (p2)",
+       x = "GameType", y = "TotalXP")
+
+# Building a linear regression model for p2
+model_p2 <- lm(TotalXP ~ Score + GameType, data = p2)
+
+# Summary of the model for p2
+summary(model_p2)
+
+# Predict TotalXP using the model for p2
+predicted_totalxp_p2 <- predict(model_p2, newdata = p2)
+
+# Compare predicted_totalxp_p2 with the actual TotalXP for p2
+comparison_df_p2 <- data.frame(Actual = p2$TotalXP, Predicted = predicted_totalxp_p2)
+head(comparison_df_p2, 10)
+```
+TDM and hardpoint had the most variation but also more data. It seems that those two had the most extremes pulling the score mean higher and due to this making the score likely to be higher in these game modes.The least likely is HC- killed confirmed. If a player wanted a game mode to most likely increase his score, the player should consider playing TDM and hardpoint.
